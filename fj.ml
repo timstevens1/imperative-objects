@@ -74,5 +74,5 @@ type ty = string
 type tenv = ty string_map
 [@@deriving show {with_path = false}]
 
-type subtenv = (string * string) list
+type subtenv = string_pair_set
 [@@deriving show {with_path = false}]

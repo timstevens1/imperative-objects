@@ -31,6 +31,21 @@ let pp_set
     end xs ;
     Format.fprintf fmt "@,}@]" 
 
+let pp_pair_set
+    (pp_left : Format.formatter -> 'a -> unit)
+    (pp_right : Format.formatter -> 'b -> unit)
+    (fmt : Format.formatter)
+    (lrs : ('a * 'b) list)
+    : unit =
+        Format.fprintf fmt "@[<2>{";
+        List.iteri begin fun i (l,r) ->
+            if i <> 0 then Format.fprintf fmt ";@";
+            pp_left fmt l;
+            Format.fprintf fmt "<:";
+            pp_right fmt r
+       end lrs;
+       Format.fprintf fmt "@,}@]"
+
 let pp_map
   (pp_key : Format.formatter -> 'a -> unit)
   (pp_val : Format.formatter -> 'b -> unit)
@@ -52,6 +67,11 @@ module StringSet = struct
     pp_set pp_pstring fmt (elements ss)
 end
 
+module StringPairSet = struct 
+    include Set.Make(struct type t = string * string let compare = compare end)
+    let pp (fmt : Format.formatter) (lrs : t) : unit = pp_pair_set pp_pstring pp_pstring fmt (elements lrs)
+end
+
 module StringMap = struct
   include Map.Make(String)
   let pp (pp_val : Format.formatter -> 'a -> unit) (fmt : Format.formatter) (kvs : 'a t) : unit = 
@@ -62,6 +82,9 @@ type string_set = StringSet.t
 [@@deriving show {with_path=false}]
 
 type 'a string_map = 'a StringMap.t
+[@@deriving show {with_path=false}]
+
+type string_pair_set = StringPairSet.t
 [@@deriving show {with_path=false}]
 
 let string_set_map_examples () =
