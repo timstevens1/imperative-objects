@@ -68,48 +68,11 @@ open StringSetMap
  * Remember to always use OCaml's structural equality (=), and never use
  * physical equality (==).
  *)
-type cname = string
-type fname = string
-type mname = string
-
-type var = string
-
-type term =
-        | Var of var
-        | FldAccess of term * fname
-        | MethodInvoke of term * mname * term list
-        | ObjectCreation of cname * term list
-        | Cast of cname * term
-
-type tlist = term list
-
-type value = 
-        | VObjectCreation of cname * value list
-        
-type tenv = cname string_map
+type ty = string
 [@@deriving show {with_path = false}]
 
+type tenv = ty string_map
+[@@deriving show {with_path = false}]
 
-type fldlist = (cname * fname)  list
-
-type ctor = ConstructorDecl of cname * fldlist * fldlist * tlist
-
-type class_decl = ClassDecl of cname * cname * fldlist  * ctor * method_decl list
-
-type class_env = class_decl list
-
-(* type tclass = *)
-
-let rec super_look = (cenv: class_env) (c0 : cname) : cname  = match cenv with
-        | [] -> raise SUBTYPE_ERROR
-        | cd::ce -> begin match cd with 
-                |(c1,c2,_, _ ,_) -> if c0 = c1 then c2 else subtype_look ce c0
-                end
-
-let rec is_subtype (cenv : class_env) (c0 : ty) (csuper : ty) : bool = begin match csuper with
-        | c0 -> true
-        | 
-
-
-
-let rec step (e0 : term) (
+type subtenv = string_pair_set
+[@@deriving show {with_path = false}]
