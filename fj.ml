@@ -68,6 +68,9 @@ open StringSetMap
  * Remember to always use OCaml's structural equality (=), and never use
  * physical equality (==).
  *)
+exception TODO
+exception SUBTYPE_ERROR
+
 type cname = string
 type fname = string
 type mname = string
@@ -87,12 +90,13 @@ type value =
         | VObjectCreation of cname * value list
         
 type tenv = cname string_map
-[@@deriving show {with_path = false}]
 
 
 type fldlist = (cname * fname)  list
 
 type ctor = ConstructorDecl of cname * fldlist * fldlist * tlist
+
+type method_decl = MethodDecl of cname * mname * fldlist * tlist 
 
 type class_decl = ClassDecl of cname * cname * fldlist  * ctor * method_decl list
 
@@ -100,16 +104,22 @@ type class_env = class_decl list
 
 (* type tclass = *)
 
-let rec super_look = (cenv: class_env) (c0 : cname) : cname  = match cenv with
+let rec super_look (cenv: class_env) (c0 : cname) : cname  = match cenv with
         | [] -> raise SUBTYPE_ERROR
         | cd::ce -> begin match cd with 
-                |(c1,c2,_, _ ,_) -> if c0 = c1 then c2 else subtype_look ce c0
+                |ClassDecl(c1,c2,_, _ ,_) -> if c0 = c1 then c2 else super_look ce c0
                 end
 
-let rec is_subtype (cenv : class_env) (c0 : ty) (csuper : ty) : bool = begin match csuper with
+let rec is_subtype (cenv : class_env) (c0 : cname) (csuper : cname) : bool = begin match csuper with
         | c0 -> true
-        | 
+        end
 
 
+let rec step (cenv : class_env) (e0 : term) : term = raise TODO
 
-let rec step (e0 : term) (
+let rec type_term (cenv : class_env) (e0 : term) : cname = raise TODO
+
+let rec type_meth (cenv : class_env) (cl : cname) (m : mname) : bool = raise TODO
+
+let rec type_class (cenv : class_env) (cl : cname) (m : mname) : bool = raise TODO
+
