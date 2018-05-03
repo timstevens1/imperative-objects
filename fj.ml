@@ -97,9 +97,9 @@ type tenv = cname string_map
 
 type fldlist = (cname * fname)  list
 
-type ctor = ConstructorDecl of cname * fldlist * fldlist * tlist
+type ctor = ConstructorDecl of cname * fldlist * fldlist * term
 
-type method_decl = MethodDecl of cname * mname * fldlist * tlist 
+type method_decl = MethodDecl of cname * mname * fldlist * term 
 
 type class_decl = ClassDecl of cname * cname * fldlist  * ctor * method_decl list
 
@@ -123,7 +123,7 @@ let rec super_look (cenv: class_env) (c0 : cname) : cname  = match class_search 
 
 let rec is_subtype (cenv : class_env) (c0 : cname) (csuper : cname) : bool = let c1 = super_look cenv c0 in
         if c1 = csuper then true else
-        if c1 = c0 then false else
+        if c1 = c0 then true else
         is_subtype cenv c1 csuper
 
 let rec field_look (cenv: class_env) (c : cname) : fldlist = match class_search cenv c with
@@ -147,7 +147,7 @@ let rec meth_type_look (cenv: class_env) (c : cname) (m : mname) : (cname list) 
          with METHOD_ERROR -> if c1 = c2 then raise METHOD_ERROR else meth_type_look cenv c2 m
 
 
-let rec meth_body_look (cenv: class_env) (c : cname) (m : mname) : (fname list) * tlist = match class_search cenv c with
+let rec meth_body_look (cenv: class_env) (c : cname) (m : mname) : (fname list) * term = match class_search cenv c with
          | ClassDecl(c1,c2,_,_,mlist) -> try 
              match meth_list_search mlist m with
              | MethodDecl(c0,m0,f,t) -> let rec snd_ext (fl : fldlist): fname list = begin match fl with
@@ -172,7 +172,13 @@ let rec type_term (cenv : class_env) (e0 : term) : cname = begin match e0 with
         | Var(v) -> failwith "this one doesn't make sense"
         end
 
-let rec type_meth (cenv : class_env) (cl : cname) (m : mname) : bool = raise TODO
+let rec type_meth (cenv : class_env) (cl : cname) (m : mname) : bool = let (ml, rt) = meth_type_look cenv cl m in
+        let (fs, t) = meth_body_look cenv cl m in
+        let rec type_list (cenv : class_env) (clist : cname list) : bool = match clist with
+            | [] -> true
+            | cn::cnl -> try (is_subtype cenv cn cn) && (type_list cenv cnl) with SUBTYPE_ERROR -> false
+        in (type_list cenv ml) && is_subtype cenv rt (type_term cenv t)
+        
 
 let rec type_cons (cenv : class_env) (cl : cname) : bool = raise TODO
 
