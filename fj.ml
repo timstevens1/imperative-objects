@@ -70,6 +70,9 @@ open StringSetMap
  *)
 exception TODO
 exception SUBTYPE_ERROR
+exception METHOD_ERROR
+exception TYPE_ERROR
+
 
 type cname = string
 type fname = string
@@ -126,9 +129,48 @@ let rec is_subtype (cenv : class_env) (c0 : cname) (csuper : cname) : bool = let
 let rec field_look (cenv: class_env) (c : cname) : fldlist = match class_search cenv c with
             | ClassDecl(c1,c2,fl,_,_) -> if c = c2 then fl else append fl (field_look cenv c2)
 
+let rec meth_list_search (ml : method_decl list) (m : mname) : method_decl = match ml with
+        | [] -> raise METHOD_ERROR
+        | md::me -> begin match md with
+            | MethodDecl(c,m0,f,t) -> if m = m0 then md else meth_list_search me m
+        end
+
+let rec meth_type_look (cenv: class_env) (c : cname) (m : mname) : (cname list) * cname = match class_search cenv c with
+         | ClassDecl(c1,c2,_,_,mlist) -> try 
+             match meth_list_search mlist m with
+             | MethodDecl(c0,m0,f,t) -> let rec fst_ext (fl : fldlist): fname list = begin match fl with
+                                        | [] -> []
+                                        | fn::fdl -> (fst fn)::(fst_ext fdl)
+                                        end
+                                        in
+                                        ((fst_ext f),c0) 
+         with METHOD_ERROR -> if c1 = c2 then raise METHOD_ERROR else meth_type_look cenv c2 m
+
+
+let rec meth_body_look (cenv: class_env) (c : cname) (m : mname) : (fname list) * tlist = match class_search cenv c with
+         | ClassDecl(c1,c2,_,_,mlist) -> try 
+             match meth_list_search mlist m with
+             | MethodDecl(c0,m0,f,t) -> let rec snd_ext (fl : fldlist): fname list = begin match fl with
+                                        | [] -> []
+                                        | fn::fdl -> (snd fn)::(snd_ext fdl)
+                                        end
+                                        in
+                                        ((snd_ext f),t) 
+         with METHOD_ERROR -> if c1 = c2 then raise METHOD_ERROR else meth_body_look cenv c2 m
+
 let rec step (cenv : class_env) (e0 : term) : term = raise TODO
 
-let rec type_term (cenv : class_env) (e0 : term) : cname = raise TODO
+let rec type_term (cenv : class_env) (e0 : term) : cname = begin match e0 with
+        | FldAccess(e1,fl) -> let rec fld_find (flist : fldlist) (f: fname) : cname = begin match flist with
+                                        | [] -> raise TYPE_ERROR
+                                        | fd::fdl -> if (fst fd) = f then (snd fd) else fld_find fdl f
+                                        end
+                                        in fld_find (field_look cenv (type_term cenv e1)) fl
+        | MethodInvoke(e1,m,tl) -> raise TODO
+        | ObjectCreation(c,tl) -> raise TODO
+        | Cast(c,t) -> raise TODO
+        | Var(v) -> failwith "this one doesn't make sense"
+        end
 
 let rec type_meth (cenv : class_env) (cl : cname) (m : mname) : bool = raise TODO
 
