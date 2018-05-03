@@ -104,16 +104,27 @@ type class_env = class_decl list
 
 (* type tclass = *)
 
-let rec super_look (cenv: class_env) (c0 : cname) : cname  = match cenv with
-        | [] -> raise SUBTYPE_ERROR
-        | cd::ce -> begin match cd with 
-                |ClassDecl(c1,c2,_, _ ,_) -> if c0 = c1 then c2 else super_look ce c0
-                end
+let rec append l1 l2 =
+  match l1 with
+  | h :: t -> h :: append t l2
+  | [] -> l2
 
-let rec is_subtype (cenv : class_env) (c0 : cname) (csuper : cname) : bool = begin match csuper with
-        | c0 -> true
+let rec class_search (cenv: class_env) (c : cname) : class_decl = match cenv with
+        | [] -> raise SUBTYPE_ERROR
+        | cd::ce -> begin match cd with
+                |ClassDecl(c1,c2,fl,ctor,ml) -> if c = c1 then cd else class_search ce c
         end
 
+let rec super_look (cenv: class_env) (c0 : cname) : cname  = match class_search cenv c0 with
+        |ClassDecl(c1,c2,_, _ ,_) -> c2
+
+let rec is_subtype (cenv : class_env) (c0 : cname) (csuper : cname) : bool = let c1 = super_look cenv c0 in
+        if c1 = csuper then true else
+        if c1 = c0 then false else
+        is_subtype cenv c1 csuper
+
+let rec field_look (cenv: class_env) (c : cname) : fldlist = match class_search cenv c with
+            | ClassDecl(c1,c2,fl,_,_) -> if c = c2 then fl else append fl (field_look cenv c2)
 
 let rec step (cenv : class_env) (e0 : term) : term = raise TODO
 
@@ -121,5 +132,7 @@ let rec type_term (cenv : class_env) (e0 : term) : cname = raise TODO
 
 let rec type_meth (cenv : class_env) (cl : cname) (m : mname) : bool = raise TODO
 
-let rec type_class (cenv : class_env) (cl : cname) (m : mname) : bool = raise TODO
+let rec type_cons (cenv : class_env) (cl : cname) : bool = raise TODO
+
+let rec type_class (cenv : class_env) (cl : cname) : bool = raise TODO
 
