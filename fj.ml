@@ -72,6 +72,7 @@ exception TODO
 exception SUBTYPE_ERROR
 exception METHOD_ERROR
 exception TYPE_ERROR
+exception AMBIGUOUS_FIELDS_ERROR
 
 
 type cname = string
@@ -97,7 +98,7 @@ type tenv = cname string_map
 
 type fldlist = (cname * fname)  list
 
-type ctor = ConstructorDecl of cname * fldlist * fldlist * term
+type ctor = ConstructorDecl of cname * fldlist
 
 type method_decl = MethodDecl of cname * mname * fldlist * term 
 
@@ -123,11 +124,22 @@ let rec super_look (cenv: class_env) (c0 : cname) : cname  = match class_search 
 
 let rec is_subtype (cenv : class_env) (c0 : cname) (csuper : cname) : bool = let c1 = super_look cenv c0 in
         if c1 = csuper then true else
-        if c1 = c0 then true else
+        if c1 = c0 then false else
         is_subtype cenv c1 csuper
 
-let rec field_look (cenv: class_env) (c : cname) : fldlist = match class_search cenv c with
-            | ClassDecl(c1,c2,fl,_,_) -> if c = c2 then fl else append fl (field_look cenv c2)
+let rec field_loo (cenv: class_env) (c : cname) : fldlist = match class_search cenv c with
+            | ClassDecl(c1,c2,fl,_,_) -> if c = c2 then fl else append fl (field_loo cenv c2)
+
+let rec field_look (cenv: class_env) (c : cname) : fldlist = let fl = field_loo cenv c in
+        let rec uniq (fl : fldlist) (f : cname * fname) : bool = match fl with
+            | [] -> true
+            | f1::fl1 -> (not ((snd f) = (snd f1))) && (uniq fl1 f)
+        in
+        let rec is_uniq (fl: fldlist) : bool  = match fl with
+            | [] -> true
+            | f::fl1 -> (uniq fl f) && (is_uniq fl1)
+        in 
+        if (is_uniq fl) then fl else raise AMBIGUOUS_FIELDS_ERROR 
 
 let rec meth_list_search (ml : method_decl list) (m : mname) : method_decl = match ml with
         | [] -> raise METHOD_ERROR
@@ -163,12 +175,19 @@ let rec step (cenv : class_env) (e0 : term) : term = raise TODO
 let rec type_term (cenv : class_env) (e0 : term) : cname = begin match e0 with
         | FldAccess(e1,fl) -> let rec fld_find (flist : fldlist) (f: fname) : cname = begin match flist with
                                         | [] -> raise TYPE_ERROR
-                                        | fd::fdl -> if (fst fd) = f then (snd fd) else fld_find fdl f
+                                        | fd::fdl -> if (snd fd) = f then (fst fd) else fld_find fdl f
                                         end
                                         in fld_find (field_look cenv (type_term cenv e1)) fl
         | MethodInvoke(e1,m,tl) -> raise TODO
-        | ObjectCreation(c,tl) -> raise TODO
-        | Cast(c,t) -> raise TODO
+        | ObjectCreation(c,tl) ->
+                let rec type_flds (fl : fldlist) (tl : tlist) : cname = match fl, tl with
+                    | [], [] -> c
+                    | [], _ -> raise TYPE_ERROR
+                    | _, [] -> raise TYPE_ERROR
+                    | f::fl1, t::tl1 -> if not(is_subtype cenv (fst f) (type_term cenv t)) then raise TYPE_ERROR else type_flds fl1 tl1
+                in type_flds (field_look cenv c) tl 
+
+        | Cast(c,t) -> c
         | Var(v) -> failwith "this one doesn't make sense"
         end
 
@@ -182,5 +201,9 @@ let rec type_meth (cenv : class_env) (cl : cname) (m : mname) : bool = let (ml, 
 
 let rec type_cons (cenv : class_env) (cl : cname) : bool = raise TODO
 
-let rec type_class (cenv : class_env) (cl : cname) : bool = raise TODO
+let rec type_class (cenv : class_env) (cl : cname) : bool = let ClassDecl(c0,c1,fl,ctor,ml) = class_search cenv cl in
+    let rec meth_iter (cenv: class_env) (cl: cname) (ml: method_decl list) = match ml with
+            | [] -> true
+            | md::ml' -> match md with MethodDecl(_,mn,_,_) -> (type_meth cenv cl mn) && (meth_iter cenv cl ml')
+    in meth_iter cenv cl ml
 
