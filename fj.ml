@@ -90,11 +90,10 @@ type term =
 
 type tlist = term list
 
-type value = 
+type value = 1
         | VObjectCreation of cname * value list
         
 type tenv = cname string_map
-
 
 type fldlist = (cname * fname)  list
 
@@ -170,7 +169,12 @@ let rec meth_body_look (cenv: class_env) (c : cname) (m : mname) : (fname list) 
                                         ((snd_ext f),t) 
          with METHOD_ERROR -> if c1 = c2 then raise METHOD_ERROR else meth_body_look cenv c2 m
 
-let rec step (cenv : class_env) (e0 : term) : term = raise TODO
+let rec step (cenv : class_env) (e0 : term) : term = match e0 with
+        | FldAccess(e1,f1) -> begin match e1 with
+                | VObjectCreation(c',vlist') -> begin match f1 with
+                        | 
+                end
+        end
 
 let rec type_term (cenv : class_env) (e0 : term) : cname = begin match e0 with
         | FldAccess(e1,fl) -> let rec fld_find (flist : fldlist) (f: fname) : cname = begin match flist with
