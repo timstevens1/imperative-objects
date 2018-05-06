@@ -1,8 +1,0 @@
-### Starting build.
-# Target: fj.ml.depends, tags: { package(ppx_deriving.std), extension:ml, file:fj.ml, ocaml, ocamldep, quiet, traverse }
-ocamlfind ocamldep -package ppx_deriving.std -modules fj.ml > fj.ml.depends
-+ ocamlfind ocamldep -package ppx_deriving.std -modules fj.ml > fj.ml.depends
-File "fj.ml", line 92, characters 13-14:
-Error: Syntax error
-Command exited with code 2.
-# Compilation unsuccessful.
