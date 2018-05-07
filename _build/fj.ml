@@ -34,13 +34,13 @@ type tlist = term list
 
 type value = VObjectCreation of cname * value list
 [@@deriving show {with_path = false}]
-
+        
 
 type fldlist = (cname * fname)  list
 [@@deriving show {with_path = false}]
 
 
-type method_decl = MethodDecl of cname * mname * fldlist * term
+type method_decl = MethodDecl of cname * mname * fldlist * term 
 [@@deriving show {with_path = false}]
 
 type class_decl = ClassDecl of cname * cname * fldlist * method_decl list
@@ -81,8 +81,8 @@ let rec field_look (cenv: class_env) (c : cname) : fldlist = let fl = field_loo 
         let rec is_uniq (fl: fldlist) : bool  = match fl with
             | [] -> true
             | f::fl1 -> (uniq fl1 f) && (is_uniq fl1)
-        in
-        if (is_uniq fl) then fl else raise FIELD_ERROR
+        in 
+        if (is_uniq fl) then fl else raise FIELD_ERROR 
 
 let rec meth_list_search (ml : method_decl list) (m : mname) : method_decl = match ml with
         | [] -> raise METHOD_ERROR
@@ -91,26 +91,26 @@ let rec meth_list_search (ml : method_decl list) (m : mname) : method_decl = mat
         end
 
 let rec meth_type_look (cenv: class_env) (c : cname) (m : mname) : (cname list) * cname = match class_search cenv c with
-         | ClassDecl(c1,c2,_,mlist) -> try
+         | ClassDecl(c1,c2,_,mlist) -> try 
              match meth_list_search mlist m with
              | MethodDecl(c0,m0,f,t) -> let rec fst_ext (fl : fldlist): fname list = begin match fl with
                                         | [] -> []
                                         | fn::fdl -> (fst fn)::(fst_ext fdl)
                                         end
                                         in
-                                        ((fst_ext f),c0)
+                                        ((fst_ext f),c0) 
          with METHOD_ERROR -> if c2 = "object" then raise METHOD_ERROR else meth_type_look cenv c2 m
 
 
 let rec meth_body_look (cenv: class_env) (c : cname) (m : mname) : (fname list) * term = match class_search cenv c with
-         | ClassDecl(c1,c2,_,mlist) -> try
+         | ClassDecl(c1,c2,_,mlist) -> try 
              match meth_list_search mlist m with
              | MethodDecl(c0,m0,f,t) -> let rec snd_ext (fl : fldlist): fname list = begin match fl with
                                         | [] -> []
                                         | fn::fdl -> (snd fn)::(snd_ext fdl)
                                         end
                                         in
-                                        ((snd_ext f),t)
+                                        ((snd_ext f),t) 
          with METHOD_ERROR -> if c2 = "object" then raise METHOD_ERROR else meth_body_look cenv c2 m
 
 let rec val_of_fld (fl : fldlist) (f1 : fname) (vl : value list) : value = begin match fl, vl with
@@ -120,38 +120,31 @@ let rec val_of_fld (fl : fldlist) (f1 : fname) (vl : value list) : value = begin
         | f::fl1, v::vl1 -> if snd f = f1 then v else
                 val_of_fld fl1 f1 vl1
         end
-
+  
 type result =
         | Val of value
         | Step of class_env * term
         | Stuck
 [@@deriving show {with_path = false}]
 
+let rec step (cenv : class_env) (e0 : term) : result = raise TODO
+(*  
 let rec step (cenv : class_env) (e0 : term) : result = match e0 with
-(* [E-ProjNew] *)
-        | FldAccess(e1,f1) -> begin match step cenv e1 with
-                | Val(VObjectCreation(c',vlist')) -> Val(val_of_fld(field_look cenv c') f1 vlist')
-                | Step(cenv, e') -> Step(cenv, FldAccess(e',f1))
-                | Stuck -> Stuck
+        | FldAccess(e1,f1) -> begin match e1 with
+                | VObjectCreation(c',vlist') -> val_of_fld (field_look cenv c') f1 vlist'
+                | _ -> FldAccess(Step(cenv, e1), f1)
                 end
-(* [E-InvkNew] *)
-        | MethodInvoke(e1,m,e2) -> begin match step cenv e1 with
-            | Val(VObjectCreation(c',vlist')) -> begin match step cenv e2 with
-                | Val()
-              end
+        | MethodInvoke(e1,m,e2) -> begin match e1 with
+                | VObjectCreation(c',vlist') -> raise TODO
                 | _ -> MethodInvoke(Step(cenv, e2), m, t1)
-                | Stuck -> Stuck
                 end
-(* [E-CastNew] *)
-        | ObjectCreation(c,el) -> begin match el with
-                  | Val(VObjectCreation(c, [])) -> Val(VObjectCreation(c, []))
-                  | Step(cenv, e') -> Step(cenv, ObjectCreation(c, e'))
-                  | Stuck -> Stuck
-              end
-                | [] -> Val(VObjectCreation(c, []))
-          end
-        | _ -> raise TODO
-
+        | ObjectCreation(c,el) -> begin match e1 with
+                | value list -> VObjectCreation(c, vlist')
+                | _ -> ObjectCreation(c, Step(cenv, e1))
+                end
+        | [] -> Stuck  
+        end
+*)
 
 let rec type_term (tenv : t_env) (cenv : class_env) (e0 : term) : cname = begin match e0 with
         | FldAccess(e1,fl) -> let rec fld_find (flist : fldlist) (f: fname) : cname = begin match flist with
@@ -189,7 +182,7 @@ let rec type_meth (tenv: t_env) (cenv : class_env) (cl : cname) (m : mname) : bo
             |[], _ -> raise METHOD_ERROR
             | m::ml',arg::args' -> tenv_add (StringMap.add arg m tenv) cenv ml' args'
         in (type_list cenv ml) && is_subtype cenv rt (type_term (StringMap.add "this" cl (tenv_add tenv cenv ml fs)) cenv t)
-
+        
 let rec type_class (tenv: t_env) (cenv : class_env) (cl : cname) : bool = let ClassDecl(c0,c1,fl,ml) = class_search cenv cl in
     let rec meth_iter (cenv: class_env) (cl: cname) (ml: method_decl list) = match ml with
             | [] -> true
@@ -216,7 +209,7 @@ type 'a test_result =
 type test_pack = class_env * term
 [@@deriving show {with_path = false}]
 
-let type_testing (tp : test_pack) : cname test_result = let (cenv, t) = tp in
+let type_testing (tp : test_pack) : cname test_result = let (cenv, t) = tp in 
     try
         if type_cenv StringMap.empty cenv cenv then R(type_term StringMap.empty cenv t) else raise (CLASS_ERROR "iteration")
     with
@@ -225,16 +218,16 @@ let type_testing (tp : test_pack) : cname test_result = let (cenv, t) = tp in
     | METHOD_ERROR -> MethodError
     | (CLASS_ERROR s) -> ClassError(s)
 
-let enviro : class_env = [ClassDecl("A","object",[("B","thing")],[])
+let enviro : class_env = [ClassDecl("A","object",[("B","thing")],[]) 
                          ;ClassDecl("B","object",[],[])
                          ;ClassDecl("C","A",[],[])
-                         ;ClassDecl("D","object",[("B","thing")],[MethodDecl("B","thistest",[],FldAccess(This,"thing"))])
+                         ;ClassDecl("D","object",[("B","thing")],[MethodDecl("B","thistest",[],FldAccess(This,"thing"))]) 
                          ;ClassDecl("E","D",[("B","thing")],[])
                          ;ClassDecl("F","C",[],[])
                          ;ClassDecl("G","D",[("C","snd")],[MethodDecl("A","args",[("B","thin")],ObjectCreation("A",[Var("thin")]))])
                           ]
 
-let type_test_block : test_block =
+let type_test_block : test_block = 
     TestBlock("TYPING", [((enviro,ObjectCreation("B",[])),R("B"))
                         ;((enviro, FldAccess(ObjectCreation("A",[ObjectCreation("B",[])]),"thing")), R("B"))
                         ;((enviro,FldAccess(ObjectCreation("C",[ObjectCreation("B",[])]),"thing")),R("B"))
@@ -254,7 +247,7 @@ let type_test_block : test_block =
  *
  * step testing is the function that actually runs the step function. it is passed to the harness through the test block *)
 
-let step_testing (tp : test_pack) : result test_result = let (cenv, t) = tp in
+let step_testing (tp : test_pack) : result test_result = let (cenv, t) = tp in 
     try
         R(step cenv t)
     with
