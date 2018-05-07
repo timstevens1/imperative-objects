@@ -72,7 +72,7 @@ exception TODO
 exception SUBTYPE_ERROR
 exception METHOD_ERROR
 exception TYPE_ERROR
-exception AMBIGUOUS_FIELDS_ERROR
+exception FIELD_ERROR
 
 
 type cname = string
@@ -167,13 +167,34 @@ let rec meth_body_look (cenv: class_env) (c : cname) (m : mname) : (fname list) 
                                         ((snd_ext f),t) 
          with METHOD_ERROR -> if c2 = "object" then raise METHOD_ERROR else meth_body_look cenv c2 m
 
-let rec step (cenv : class_env) (e0 : term) : term = match e0 with
-        | FldAccess(e1,f1) -> begin match e1 with
-                | VObjectCreation(c',vlist') -> begin match f1 with
-                        | 
-                end
+let rec val_of_fld (fl : fldlist) (f1 : fname) (vl : value list) : value = begin match fl, vl with
+        | [],[] -> raise FIELD_ERROR
+        | [], _ -> raise FIELD_ERROR
+        | _ ,[] -> raise FIELD_ERROR
+        | f::fl1, v::vl1 -> if snd f = f1 then v else
+                val_of_fld fl1, vl1
         end
-
+  
+type result =
+        | Val of value
+        | Step of class_env * term
+        | Stuck
+  
+let rec step (cenv : class_env) (e0 : term) : result = match e0 with
+        | FldAccess(e1,f1) -> begin match e1 with
+                | VObjectCreation(c',vlist') -> val_of_fld (field_look cenv c') f1 vlist'
+                | _ -> FldAccess(Step(cenv, e1), f1)
+                end
+        | MethodInvoke(e1,m,e2) -> begin match e1 with
+                | VObjectCreation(c',vlist') -> raise TODO
+                | _ -> MethodInvoke(Step(cenv, e2), m, t1)
+                end
+        | ObjectCreation(c,el) -> begin match e1 with
+                | value list -> VObjectCreation(c, vlist')
+                | _ -> ObjectCreation(c, Step(cenv, e1))
+                end
+        | [] -> Stuck  
+        end
 
 let rec type_flds (fl : fldlist) (tl : tlist) (c: cname) : cname = match fl, tl with
     | [], [] -> c
