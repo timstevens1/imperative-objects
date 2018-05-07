@@ -125,6 +125,9 @@ type result =
         | Val of value
         | Step of class_env * term
         | Stuck
+[@@deriving show {with_path = false}]
+
+let rec step (cenv : class_env) (e0 : term) : result = raise TODO
 (*  
 let rec step (cenv : class_env) (e0 : term) : result = match e0 with
         | FldAccess(e1,f1) -> begin match e1 with
@@ -239,6 +242,29 @@ let type_test_block : test_block =
     ,[%show: cname test_result]
     )
 
+(* Step Testing. Since I figured out the testing harness for typing, I figured I would set it up for you folks
+ *
+ *
+ * step testing is the function that actually runs the step function. it is passed to the harness through the test block *)
 
+let step_testing (tp : test_pack) : result test_result = let (cenv, t) = tp in 
+    try
+        R(step cenv t)
+    with
+    | TYPE_ERROR -> TypeError
+    | FIELD_ERROR -> FieldError
+    | METHOD_ERROR -> MethodError
+    | (CLASS_ERROR s) -> ClassError(s)
+
+(* this is the step test block it has the form of a constructed tuple with a name, (tests, expected results) list, evaluation function, evaluation criteria, test print function, and result print function. *)
+
+let step_test_block : test_block = TestBlock("STEP"
+                ,[(*This should be a list of tuples of test case (of the form test_pack or cenv * term) * result. Elements in a list are separated by semicolons *)]
+                ,step_testing
+                , (=)
+                ,[%show : test_pack]
+                , [%show: result test_result])
+
+(* This is where it all goes to the Util.ml *)
 let _ = _SHOW_PASSED_TESTS := true ;
-run_tests [type_test_block]
+run_tests [type_test_block; step_test_block]
