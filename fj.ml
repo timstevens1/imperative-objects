@@ -108,15 +108,36 @@ let rec meth_body_look (cenv: class_env) (c : cname) (m : mname) : (fname list) 
                                         in
                                         ((snd_ext f),t) 
          with METHOD_ERROR -> if c2 = "object" then raise METHOD_ERROR else meth_body_look cenv c2 m
-(*
-let rec step (cenv : class_env) (e0 : term) : term = match e0 with
+
+let rec val_of_fld (fl : fldlist) (f1 : fname) (vl : value list) : value = begin match fl, vl with
+        | [],[] -> raise FIELD_ERROR
+        | [], _ -> raise FIELD_ERROR
+        | _ ,[] -> raise FIELD_ERROR
+        | f::fl1, v::vl1 -> if snd f = f1 then v else
+                val_of_fld fl1 f1 vl1
+        end
+  
+type result =
+        | Val of value
+        | Step of class_env * term
+        | Stuck
+(*  
+let rec step (cenv : class_env) (e0 : term) : result = match e0 with
         | FldAccess(e1,f1) -> begin match e1 with
-                | VObjectCreation(c',vlist') -> begin match f1 with
-                        | 
+                | VObjectCreation(c',vlist') -> val_of_fld (field_look cenv c') f1 vlist'
+                | _ -> FldAccess(Step(cenv, e1), f1)
                 end
+        | MethodInvoke(e1,m,e2) -> begin match e1 with
+                | VObjectCreation(c',vlist') -> raise TODO
+                | _ -> MethodInvoke(Step(cenv, e2), m, t1)
+                end
+        | ObjectCreation(c,el) -> begin match e1 with
+                | value list -> VObjectCreation(c, vlist')
+                | _ -> ObjectCreation(c, Step(cenv, e1))
+                end
+        | [] -> Stuck  
         end
 *)
-
 
 let rec type_term (cenv : class_env) (e0 : term) : cname = begin match e0 with
         | FldAccess(e1,fl) -> let rec fld_find (flist : fldlist) (f: fname) : cname = begin match flist with
@@ -124,11 +145,11 @@ let rec type_term (cenv : class_env) (e0 : term) : cname = begin match e0 with
                                         | fd::fdl -> if (snd fd) = f then (fst fd) else fld_find fdl f
                                         end
                                         in fld_find (field_look cenv (type_term cenv e1)) fl
-        | MethodInvoke(e1,m,tl) -> let rec type_flds (cenv: class_env) (ml : cname list) (tl : tlist) (c: cname) : cname = match ml, tl with
+        | MethodInvoke(e1,m,tl) -> let rec type_args (cenv: class_env) (ml : cname list) (tl : tlist) (c: cname) : cname = match ml, tl with
             | [], [] -> c
             | [], _ -> raise TYPE_ERROR
             | _, [] -> raise TYPE_ERROR
-            | m::ml1, t::tl1 -> if not(is_subtype cenv m (type_term cenv t)) then raise TYPE_ERROR else (type_flds cenv ml1 tl1 c)
+            | m::ml1, t::tl1 -> if not(is_subtype cenv m (type_term cenv t)) then raise TYPE_ERROR else (type_args cenv ml1 tl1 c)
 
                 in let mtl = meth_type_look cenv (type_term cenv e1) m in
                 type_flds cenv (fst mtl) tl (snd mtl)
