@@ -388,7 +388,7 @@ let type_test_block : test_block =
 
 let step_testing (tp : test_pack) : result test_result = let (cenv, t) = tp in
     try
-        R(step cenv t)
+        R(step cenv (step_star cenv t))
     with
     | TYPE_ERROR -> TypeError
     | FIELD_ERROR -> FieldError
