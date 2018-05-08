@@ -1,3 +1,12 @@
+(*CS 225 Final Project Imperative Objects 
+
+Created by: Tim Stevens, Jonah Shechtman, and Brett Stine
+
+
+The following program is a partial implementation of Featherweight Java with some slight changes. 
+If you would like to run the program and have downloaded all the other files. Type make fj into your command line.
+5/7/2018
+ *)
 open Util
 open StringSetMap
 
@@ -8,15 +17,22 @@ exception FIELD_ERROR
 exception CLASS_ERROR of string
 exception STUCK_ERROR
 
+(* cname is the core 'type' of types so to speak. Every object has a type cname*)
 type cname = string
 [@@deriving show {with_path = false}]
+(* function names *) 
 type fname = string
 [@@deriving show {with_path = false}]
+(* method names *)
 type mname = string
 [@@deriving show {with_path = false}]
+(* variable names *)
 type var = string
 [@@deriving show {with_path = false}]
 
+
+(* terms can have the following forms. This implementation of FJ does not really use
+Variables since we do not plan on writing programs that consist of more than one term  *)
 type term =
         | Var of var
         | FldAccess of term * fname
@@ -26,12 +42,14 @@ type term =
         | This
 [@@deriving show {with_path = false}]
 
+(* t_env only exists for inside of a method invocation since there are no variables or Thisses any where else *)
 type t_env = cname string_map
 [@@deriving show {with_path = false}]
 
 type tlist = term list
 [@@deriving show {with_path = false}]
 
+(* since the FJ mantra is everything is an object, the only type of value is an object that has only values for arguments *)
 type value = VObjectCreation of cname * value list
 [@@deriving show {with_path = false}]
 
@@ -40,22 +58,27 @@ type fldlist = (cname * fname)  list
 [@@deriving show {with_path = false}]
 
 
+(* return type, method name, list of arguments, body *)
 type method_decl = MethodDecl of cname * mname * fldlist * term
 [@@deriving show {with_path = false}]
 
+(* class name, super class name, list of fields, list of methods *)
 type class_decl = ClassDecl of cname * cname * fldlist * method_decl list
 [@@deriving show {with_path = false}]
 
+(* keeps track of legal classes and how to manipulate them  *)
 type class_env = class_decl list
 [@@deriving show {with_path = false}]
 
 (* type tclass = *)
 
+(* helper function for appending two lists. This is not tail recursive *)
 let rec append l1 l2 =
   match l1 with
   | h :: t -> h :: append t l2
   | [] -> l2
 
+(* this allows the class environment to function as a lookup table for classes and class properties *)
 let rec class_search (cenv: class_env) (c : cname) : class_decl = match cenv with
         | [] -> raise (CLASS_ERROR c)
         | cd::ce -> begin match cd with
@@ -65,14 +88,17 @@ let rec class_search (cenv: class_env) (c : cname) : class_decl = match cenv wit
 let rec super_look (cenv: class_env) (c0 : cname) : cname  = match class_search cenv c0 with
         |ClassDecl(c1,c2,_,_) -> c2
 
+(* keeps track of the subtype relation *)
 let rec is_subtype (cenv : class_env) (c0 : cname) (csuper : cname) : bool = let c1 = super_look cenv c0 in
         if c1 = csuper || csuper = c0 then true else
-        if c1 = "object" then raise (CLASS_ERROR c0) else
+        if c1 = "object" then false  else
         is_subtype cenv c1 csuper
 
+(* do not use this version  This returns the raw list of fields including fields of the superclass *)
 let rec field_loo (cenv: class_env) (c : cname) : fldlist = match class_search cenv c with
             | ClassDecl(c1,c2,fl,_) -> if c2 = "object" then fl else append fl (field_loo cenv c2)
 
+(* this self proclaimed good version of field look returns a list of fields where each field is unique and breaks if not*)
 let rec field_look (cenv: class_env) (c : cname) : fldlist = let fl = field_loo cenv c in
         let rec uniq (fl : fldlist) (f : cname * fname) : bool = match fl with
             | [] -> true
@@ -84,12 +110,15 @@ let rec field_look (cenv: class_env) (c : cname) : fldlist = let fl = field_loo 
         in
         if (is_uniq fl) then fl else raise FIELD_ERROR
 
+(* Do not use this either. This search is a class has a method and throws an error if not *)
 let rec meth_list_search (ml : method_decl list) (m : mname) : method_decl = match ml with
         | [] -> raise METHOD_ERROR
         | md::me -> begin match md with
             | MethodDecl(c,m0,f,t) -> if m = m0 then md else meth_list_search me m
         end
 
+(* This catches the error thrown by the above method and searches the superclass for the method this structure means we are always
+searching the lowest possible place where the method could be. This has been implemented this way to accomodate for overriding  *)
 let rec meth_type_look (cenv: class_env) (c : cname) (m : mname) : (cname list) * cname = match class_search cenv c with
          | ClassDecl(c1,c2,_,mlist) -> try
              match meth_list_search mlist m with
@@ -102,6 +131,7 @@ let rec meth_type_look (cenv: class_env) (c : cname) (m : mname) : (cname list) 
          with METHOD_ERROR -> if c2 = "object" then raise METHOD_ERROR else meth_type_look cenv c2 m
 
 
+(* This is a duplicate of the method above but it returns the body and the arguments instead of argument types and return type *)
 let rec meth_body_look (cenv: class_env) (c : cname) (m : mname) : (fname list) * term = match class_search cenv c with
          | ClassDecl(c1,c2,_,mlist) -> try
              match meth_list_search mlist m with
@@ -113,6 +143,7 @@ let rec meth_body_look (cenv: class_env) (c : cname) (m : mname) : (fname list) 
                                         ((snd_ext f),t)
          with METHOD_ERROR -> if c2 = "object" then raise METHOD_ERROR else meth_body_look cenv c2 m
 
+(*  this returns the value corresponding to a field given a list of both and raises an error if one is not found. *)
 let rec val_of_fld (fl : fldlist) (f1 : fname) (vl : value list) : value = begin match fl, vl with
         | [],[] -> raise FIELD_ERROR
         | [], _ -> raise FIELD_ERROR
@@ -121,6 +152,7 @@ let rec val_of_fld (fl : fldlist) (f1 : fname) (vl : value list) : value = begin
                 val_of_fld fl1 f1 vl1
         end
 
+(* returns a term when a term is needed instead of a value *)
 let rec term_of_val (v0 : value) : term = match v0 with
   | VObjectCreation(c, el) ->
     let rec iter (vl: value list) : tlist = match vl with
@@ -135,6 +167,7 @@ type result =
         | Stuck
 [@@deriving show {with_path = false}]
 
+(* this is an unfinished function inteded to perform the substitution of fields for variables in  method invocations *)
 let rec subst (cenv:class_env ) (old : term) (noo : value) (t : term) : term =
   match t with
   | This -> This
@@ -154,6 +187,7 @@ let rec subst (cenv:class_env ) (old : term) (noo : value) (t : term) : term =
   MethodInvoke((subst cenv old noo t'),m,(iter tl))
   | Var(t') -> raise TODO
 
+(* this substitutes This with a value in method invocations *)
 let rec sub_this (cenv:class_env ) (v: value ) (t : term) : term =
   match t with
   | This -> term_of_val v
@@ -173,7 +207,7 @@ let rec sub_this (cenv:class_env ) (v: value ) (t : term) : term =
     MethodInvoke((sub_this cenv v t'),m,(iter tl))
   | Var(t') -> raise TODO
 
-
+(* this function puts both of the substitution functions together and does substitution for entire lists  *)
 let rec subst_l (cenv: class_env) (v : value) (old_list: fldlist) (noo_list : value list) (t: term) : term =
   match old_list, noo_list with
   | [],[] -> t
@@ -238,6 +272,7 @@ let rec step_star (cname : class_env) (t : term) : term = match (step cname t) w
 
 
 
+(* the following function implements the term typing rules given a class environment and a type environment. *)
 let rec type_term (tenv : t_env) (cenv : class_env) (e0 : term) : cname = begin match e0 with
         | FldAccess(e1,fl) -> let rec fld_find (flist : fldlist) (f: fname) : cname = begin match flist with
                                         | [] -> raise FIELD_ERROR
@@ -263,6 +298,7 @@ let rec type_term (tenv : t_env) (cenv : class_env) (e0 : term) : cname = begin 
         | This -> StringMap.find "this" tenv
         end
 
+(* Types methods within classes given a class environment and a typing environment. Returns true if the method satisfies the typing conventions *)
 let rec type_meth (tenv: t_env) (cenv : class_env) (cl : cname) (m : mname) : bool = let (ml, rt) = meth_type_look cenv cl m in
         let (fs, t) = meth_body_look cenv cl m in
         let rec type_list (cenv : class_env) (clist : cname list) : bool = match clist with
@@ -275,13 +311,14 @@ let rec type_meth (tenv: t_env) (cenv : class_env) (cl : cname) (m : mname) : bo
             | m::ml',arg::args' -> tenv_add (StringMap.add arg m tenv) cenv ml' args'
         in (type_list cenv ml) && is_subtype cenv rt (type_term (StringMap.add "this" cl (tenv_add tenv cenv ml fs)) cenv t)
 
+(* Types classes within a class environment and returns true if the method satisfies the typing conentions *)
 let rec type_class (tenv: t_env) (cenv : class_env) (cl : cname) : bool = let ClassDecl(c0,c1,fl,ml) = class_search cenv cl in
     let rec meth_iter (cenv: class_env) (cl: cname) (ml: method_decl list) = match ml with
             | [] -> true
             | md::ml' -> match md with MethodDecl(_,mn,_,_) -> (type_meth tenv cenv cl mn) && (meth_iter cenv cl ml')
     in meth_iter cenv cl ml
 
-
+(* returns true if the whole class environment is well typed *)
 let rec type_cenv (tenv: t_env) (cenv : class_env) (clist : class_env) : bool = match clist with
         | [] -> true
         | cd::cl -> match cd with ClassDecl(c0,_,_,_) -> type_class tenv cenv c0 && type_cenv tenv cenv cl
@@ -298,12 +335,13 @@ type 'a test_result =
   | ClassError of string
 [@@deriving show {with_path = false}]
 
+(* cheap adaptation of the old testing harness into working with a class environment since we may want to vary the testing environment per class *)
 type test_pack = class_env * term
 [@@deriving show {with_path = false}]
 
 let type_testing (tp : test_pack) : cname test_result = let (cenv, t) = tp in
     try
-        if type_cenv StringMap.empty cenv cenv then R(type_term StringMap.empty cenv t) else raise (CLASS_ERROR "iteration")
+        if type_cenv StringMap.empty cenv cenv then R(type_term StringMap.empty cenv t) else raise (CLASS_ERROR "env err")
     with
     | TYPE_ERROR -> TypeError
     | FIELD_ERROR -> FieldError
@@ -319,6 +357,15 @@ let enviro : class_env = [ClassDecl("A","object",[("B","thing")],[])
                          ;ClassDecl("G","D",[("C","snd")],[MethodDecl("A","args",[("B","thin")],ObjectCreation("A",[Var("thin")]))])
                           ]
 
+(* The type tests test the following condtions in order
+- simple type recover
+- field access
+- field access of a subtype
+- subtype transitivity
+- Method invocation
+- duplicate field error throwing
+- Multiple fields and nmultiple classes and variables
+*)
 let type_test_block : test_block =
     TestBlock("TYPING", [((enviro,ObjectCreation("B",[])),R("B"))
                         ;((enviro, FldAccess(ObjectCreation("A",[ObjectCreation("B",[])]),"thing")), R("B"))
